@@ -1,15 +1,12 @@
-{-
+module Demo.Env
+  ( DemoEnv(Production,Beta,Development)
+  , Rad
+  ) where
 
-data Stage = Development
-           | Environment
-           | Production
+import Rad.Core (GenRad)
 
-type Env =
-  { sessionId    :: Int
-  , sessionToken :: String
-  , stage        :: Stage
-  }
+data DemoEnv = Production
+             | Beta
+             | Development
 
-type Rad = GenRad Env
-
--}
+type Rad a = GenRad DemoEnv a

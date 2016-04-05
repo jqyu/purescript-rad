@@ -24,10 +24,11 @@ import Data.List (List(Nil))
 
 import Rad.Core.Types.Debug (Flags)
 import Rad.Core.Types.ResultVar (ResultVar)
+import Rad.Core.Types.Request (RequestExists)
 
 -- | Fetch side effects
 
-type RadEff eff a = Eff ( err :: EXCEPTION, console :: CONSOLE, ref :: REF | eff ) a
+type RadEff eff a = Eff ( err :: EXCEPTION, console :: CONSOLE, ref :: REF, avar :: AVAR | eff ) a
 type RadAff eff a = Aff ( err :: EXCEPTION, console :: CONSOLE, ref :: REF, avar :: AVAR | eff ) a
 
 -- | Data source
@@ -44,11 +45,5 @@ class DataSource u req where
 data PerformFetch eff =  SyncFetch (RadEff eff Unit)
                       | AsyncFetch (RadAff eff Unit)
 
-type BlockedFetches req = List (Exists (BlockedFetch req))
-newtype BlockedFetch req a = BlockedFetch { req ::req a, rvar :: ResultVar a }
-
--- Existential type class
--- this might still be useful who knows
--- foreign import data DataSourceExists :: * -> (* -> * -> *) -> *
--- foreign import mkDataSourceExists :: forall f u req a. (DataSource u req a) => f u (req a) -> DataSourceExists u f
--- foreign import runDataSourceExists :: forall f u r. (forall req a. (DataSource u req a) => f u (req a) -> r) -> DataSourceExists u f
+type BlockedFetches req = List (RequestExists BlockedFetch req)
+data BlockedFetch req a = BlockedFetch (req a) (ResultVar a)

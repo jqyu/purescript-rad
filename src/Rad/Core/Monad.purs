@@ -4,7 +4,14 @@
 --   memoization
 
 module Rad.Core.Monad
-  ( GenRad
+  ( Env(..)
+  , emptyEnv
+  , Result
+  , GenRad(..)
+  , runRad
+  , throwRad
+  , dataFetch
+  , uncachedRequest
   ) where
 
 import Prelude
@@ -58,13 +65,15 @@ import Rad.Core.Types
   , BlockedFetches
   , BlockedFetch(..)
   , PerformFetch(..)
+  , class Request
+  , hash
 
   , SomeException
   , ResultVal(..)
   , ResultVar
   )
 
-import Rad.Core.DataCache (DataCache, class Hashable)
+import Rad.Core.DataCache (DataCache)
 import Rad.Core.DataCache (empty, insert, lookup) as DataCache
 import Rad.Core.RequestStore (RequestStore, BlockedRequests(..), BlockedRequestsExist, applyBlockedRequests)
 import Rad.Core.RequestStore (empty, add, contents) as RequestStore
@@ -277,7 +286,7 @@ data CacheResult a = Uncached          (ResultVar a)
                    | CachedNotFetched  (ResultVar a)
                    | Cached (Either SomeException a)
 
-cached :: forall u req a eff. (DataSource u req, Hashable req a)
+cached :: forall u req a eff. (DataSource u req, Request req a)
        => Env u -> req a -> RadEff eff (CacheResult a)
 cached (Env env) req = do
   cache <- readRef env.cacheRef
@@ -297,7 +306,7 @@ cached (Env env) req = do
               ResultDone a  -> pure $ Cached (Right a)
 
 -- | Performs actual fetching of data for a 'Request' from a 'DataSource'
-dataFetch :: forall u req a. (DataSource u req, Hashable req a) => req a -> GenRad u a
+dataFetch :: forall u req a. (DataSource u req, Request req a) => req a -> GenRad u a
 dataFetch req = GenRad \env ref -> do
   -- First, check the cache
   res <- cached env req
@@ -305,7 +314,7 @@ dataFetch req = GenRad \env ref -> do
        -- Not seem before: add the request to the RequestStore, so it
        -- will be fetched in the next round.
        Uncached rvar -> do
-         modifyRef ref $ RequestStore.add $ BlockedFetch { req: req, rvar: rvar }
+         modifyRef ref $ RequestStore.add $ BlockedFetch req rvar
          pure $ Blocked $ Cont $ continueFetch req rvar
        CachedNotFetched rvar ->
          pure $ Blocked $ Cont $ continueFetch req rvar
@@ -318,11 +327,11 @@ dataFetch req = GenRad \env ref -> do
 -- that we expect Rad computations to respect...
 -- useful for performing writes
 
-uncachedRequest :: forall u req a. (DataSource u req)
+uncachedRequest :: forall u req a. (DataSource u req, Request req a)
                 => req a -> GenRad u a
 uncachedRequest req = GenRad \_env ref -> do
   rvar <- ResultVar.empty
-  modifyRef ref $ RequestStore.add $ BlockedFetch { req: req, rvar: rvar }
+  modifyRef ref $ RequestStore.add $ BlockedFetch req rvar
   pure $ Blocked $ Cont $ continueFetch req rvar
 
 -- creates a continuation reflecting a blocked value to be retrieved in a current fetch
@@ -346,13 +355,12 @@ performFetches n (Env env) reqs = do
       jobs = RequestStore.contents reqs
       n'   = n + length jobs
   -- TODO: stats
-      test = map (applyBlockedRequests env.flags env.userEnv) jobs
---  runPar $ traverse (runBlockedRequests applyFetch) jobs
+  runPar $ traverse (toPar <<< applyBlockedRequests env.flags env.userEnv) jobs
   pure n'
 
--- toPar :: forall eff. PerformFetch eff -> Par ( console :: CONSOLE, ref :: REF, err :: EXCEPTION | eff ) Unit
--- toPar  (SyncFetch x) = Par $ liftEff x
--- toPar (AsyncFetch x) = Par x
+toPar :: forall eff. PerformFetch eff -> Par ( console :: CONSOLE, ref :: REF, err :: EXCEPTION | eff ) Unit
+toPar  (SyncFetch x) = Par $ liftEff x
+toPar (AsyncFetch x) = Par x
 
 -- TODO: see if there's an idiomatic purescript way of tracing event IO
 traceEventIO :: forall eff. String -> RadAff eff Unit

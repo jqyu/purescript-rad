@@ -20,9 +20,12 @@ import Rad.Core.Types
   , BlockedFetches
   , BlockedFetch
   , PerformFetch(..)
+  , class Request
+  , hash
+  , RequestExists
+  , mkRequestExists
   )
 
-import Data.Exists ( mkExists )
 import Data.StrMap ( StrMap )
 import Data.StrMap ( empty, alter, values )  as StrMap
 import Data.List (List(Nil), singleton, (:))
@@ -37,7 +40,7 @@ newtype BlockedRequests u req = BlockedRequests (BlockedFetches req)
 empty :: forall u. RequestStore u
 empty = RequestStore StrMap.empty
 
-add :: forall u req a. (DataSource u req)
+add :: forall u req a. (DataSource u req, Request req a)
     => BlockedFetch req a
     -> RequestStore u
     -> RequestStore u
@@ -46,11 +49,11 @@ add bf (RequestStore m) = RequestStore $
     StrMap.alter (Just <<< mkBlockedRequests <<< insert) (key name) m
 
   where insert :: Maybe (BlockedRequestsExist u) -> BlockedRequests u req
-        insert Nothing = BlockedRequests $ singleton $ mkExists bf
+        insert Nothing = BlockedRequests $ singleton $ mkRequestExists bf
         insert (Just brs) = runBlockedRequests insertInto brs
 
-        insertInto :: forall b. BlockedRequests u req -> BlockedRequests u req
-        insertInto (BlockedRequests bfs) = BlockedRequests (mkExists bf : unsafeCoerce bfs)
+        insertInto :: BlockedRequests u req -> BlockedRequests u req
+        insertInto (BlockedRequests bfs) = BlockedRequests (mkRequestExists bf : unsafeCoerce bfs)
 
         name :: DataSourceName u (req a)
         name = dataSourceName

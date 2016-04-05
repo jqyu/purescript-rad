@@ -1,10 +1,8 @@
 module Rad.Core.Types
   
-  -- * Tracing flags and Stats
   ( module Rad.Core.Types.Debug
-  -- * DataSource
   , module Rad.Core.Types.DataSource
-  -- * Result variables
+  , module Rad.Core.Types.Request
   , module Rad.Core.Types.ResultVar
   ) where
 
@@ -27,6 +25,14 @@ import Rad.Core.Types.DataSource
   , PerformFetch(..)
   , BlockedFetches
   , BlockedFetch(..)
+  )
+
+import Rad.Core.Types.Request
+  ( class Request
+  , hash
+  , RequestExists
+  , mkRequestExists
+  , runRequestExists
   )
 
 import Rad.Core.Types.ResultVar
