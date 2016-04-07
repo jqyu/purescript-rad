@@ -1,5 +1,5 @@
 -- TODOS:
---   non-empty environment initialization
+    --   non-empty environment initialization
 --   request replaying
 --   memoization
 
@@ -24,7 +24,6 @@ import Prelude
   , unit
   , pure
   , bind
-  , map
   , show
   , ($)
   , (+)
@@ -35,7 +34,7 @@ import Prelude
   , (<<<)
   )
 
-import Control.Alt ( class Alt )
+import Control.Alt ( class Alt, alt )
 import Control.Bind ( (>=>) )
 import Control.Monad.Aff.Console (log)
 import Control.Monad.Aff.Par (runPar, Par(..))
@@ -61,12 +60,9 @@ import Rad.Core.Types
   , RadAff
   , RadEff
   , class DataSource
-  , fetch
-  , BlockedFetches
   , BlockedFetch(..)
   , PerformFetch(..)
   , class Request
-  , hash
 
   , SomeException
   , ResultVal(..)
@@ -75,7 +71,7 @@ import Rad.Core.Types
 
 import Rad.Core.DataCache (DataCache)
 import Rad.Core.DataCache (empty, insert, lookup) as DataCache
-import Rad.Core.RequestStore (RequestStore, BlockedRequests(..), BlockedRequestsExist, applyBlockedRequests)
+import Rad.Core.RequestStore (RequestStore, BlockedRequestsExist, applyBlockedRequests)
 import Rad.Core.RequestStore (empty, add, contents) as RequestStore
 import Rad.Core.Types.ResultVar (empty, read) as ResultVar
 
@@ -239,12 +235,13 @@ instance applicativeRad :: Applicative (GenRad u) where
 
 -- <|>
 instance altRad :: Alt (GenRad u) where
-  alt (GenRad l) (GenRad r) = GenRad \env ref -> do
+  alt ls@(GenRad l) rs@(GenRad r) = GenRad \env ref -> do
     l' <- l env ref
     case l' of
          Done a     -> pure $ Done a
          Throw e    -> r env ref
-         Blocked a' -> pure $ Throw "TODO"
+         Blocked a' -> pure $ Blocked $ Cont $ alt ls rs
+
 
 --- empty
 instance plusRad :: Plus (GenRad u) where
