@@ -38,9 +38,23 @@ main' = do
   log $ show $ toAST kitchenSink
   timerEnd "parse perf"
 
+myComplexVal :: Rad Int
+myComplexVal = do
+    v1 <- echo 1
+    v2 <- echo 2
+    v3 <- echo 3
+    v4 <- echo 4
+    v5 <- throwRad "ya fackd up"
+    pure $ v1 + v2 + v3 + v4 + v5
+
 nnull :: Rad Int
 nnull = throwRad "uh the fuck oh!!"
-    <|> echo 5
+    <|> throwRad "still wrong"
+    <|> throwRad "still nope"
+    <|> myComplexVal
+    <|> add4 <$> echo 12 <*> echo 142 <*> throwRad "fuck u buddy" <*> echo (-7)
+    <|> add4 <$> echo 12 <*> echo 142 <*> echo (-142) <*> echo (-7)
+    <|> throwRad "nuh uh"
 
 n1 :: Rad Int
 n1 = echo 1
